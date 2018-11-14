@@ -1,96 +1,146 @@
-import http.client, threading, random, json, html, sys, os
+'''
+''  @author KimChoJapFan <https://github.com/KimChoJapFan>
+''  @date   November 13, 2018
+''  @target Python 3.7.0+
+'''
+
+# Discord uses SSL and there's no need to make any connections over HTTP.
+# Create folders and files in respective subfolders.
+# Read JSON into a Python list.
+# Write to STDERR and STDOUT.
+# Allow for multiple downloads at a time.
+# Choose random value from a list using MT19937.
+
+from http.client import HTTPSConnection
+from os import path, makedirs, getcwd
+from json import loads as json_load
+from sys import stderr, stdout
+from threading import Thread
+from random import choice
+
+# Set our filename appropriate character set for files with duplicate filenames.
+# Select a random string from our character set.
+
 charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-randomString = lambda length: ''.join([random.choice(charset) for x in range(length)])
+randoms = lambda length: ''.join(choice(charset) for i in range(length))
 
-class MissingValue(Exception):
-    def __init__(self, valueName, fileName):
-        sys.stderr.write('{} is invalid in {}'.format(valueName, fileName))
 
-class Requests:
-    def __init__(self, headers):
-        self.headers = headers
+'''
+''  Discord Class
+'''
+class Discord:
 
-    def splitUrl(self, url):
-        scheme, blank, self.domain = url.split('/')[0:3]
-        query = '/'.join(url.split('/')[3::])
-        
-        self.port = 80 if scheme == 'http:' else 443
-        self.query = '/{}'.format(query)
-    
-    def get(self, url):
-        self.splitUrl(url)
-        
-        conn = http.client.HTTPConnection(self.domain, 80) if self.port == 80 else http.client.HTTPSConnection(self.domain, 443)
-        conn.request('GET', self.query, headers=self.headers)
-
-        resp = conn.getresponse()
-        data = resp.read()
-
-        self.status, self.reason, self.raw, self.text = resp.status, resp.reason, data, html.unescape(data.decode('iso-8859-1'))
-
-class DiscordSpider:
+    '''
+    ''  Discord Class Constructor
+    ''
+    ''  @param config
+    '''
     def __init__(self, config='config.json'):
-        fileName = os.path.join(os.getcwd(), config)
+
+        # Throw an error and close the script if the configuration file isn't found.
+        if not path.exists(path.join(getcwd(), 'config.json')):
+            stderr.write('Configuration file not found.\n')
+            exit(1)
+
+        # Open and read the JSON contents of the configuration file.
+        with open('config.json', 'r') as file_handler:
+            config_data = json_load(file_handler.read())
+
+        # Throw an error and close the script if the configuration is missing an authorization token.
+        if not config_data['token']:
+            stderr.write('Missing Discord Authorization Token.\n')
+            exit(1)
+
+        # Throw an error and close the script if the configuration is set to scrape no servers.
+        if not config_data['servers'] or len(config_data['servers']) == 0:
+            stderr.write('Missing servers to crawl.\n')
+            exit(1)
+
+        # Set our User-Agent string.
+        # Set our Authorization token.
+        # Set our threaded stack array.
+
+        self.agent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.301 Chrome/56.0.2924.87 Discord/1.6.15 Safari/537.36'
+        self.auth  = config_data['token']
+        threads    = []
         
-        try:
-            if not os.path.exists(fileName): raise FileNotFoundError
-            threads = []
-            
-            with open(fileName, 'r') as configFile:
-                configJSON = json.loads(configFile.read())
+        # Traverse all servers and channels in the configuration.
+        for server_id, v in config_data['servers'].items():
+            for channel_id in config_data['servers'][server_id]:
+                
+                # Create our scraper folders.
+                scrape_folder = path.join(getcwd(), 'Discord Scrapes', server_id, channel_id)
+                if not path.exists(scrape_folder):
+                    makedirs(scrape_folder)
 
-            if not configJSON['token']: raise MissingValue('Discord Authorization Token', fileName)
-            if not configJSON['query']: raise MissingValue('Discord Search Query', fileName)
-            if len(configJSON['servers']) == 0: sys.stderr.write('No Servers to Crawl')
+                # Add queues to our threaded stack.
+                for offset in range(0, 100):
+                    thread = Thread(target=self.grabInfo, args=(server_id, channel_id, offset * 25, ))
+                    threads.append(thread)
 
-            self.httpHeaders = {
-                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.300 Chrome/56.0.2924.87 Discord/1.6.15 Safari/537.36',
-                'authorization': configJSON['token']
-            }
+                # Execute threaded stack queues.
+                for thread in threads:
+                    thread.start()
+                    thread.join()
 
-            for serverId, v in configJSON['servers'].items():
-                for channelId, folderName in configJSON['servers'][serverId].items():
-                    if not os.path.exists(os.path.join(os.getcwd(), folderName)): os.mkdir(os.path.join(os.getcwd(), folderName))
-                    for offset in range(0, 200):
-                        thread = threading.Thread(target=self.grabJSON, args=(folderName, serverId, channelId, configJSON['query'], offset, ))
-                        threads.append(thread)
+                # Empty threaded stack.
+                del threads[:]
 
-            for thread in threads:
-                thread.start()
-                thread.join()
+                
+    '''
+    ''  Grab the JSON information from our search query.
+    ''
+    ''  @param serverid
+    ''  @param channelid
+    ''  @param offset
+    '''
+    def grabInfo(self, server_id, channel_id, offset):
 
-            del threads[:]
+        # Create an HTTPS connection to discordapp.com
+        conn = HTTPSConnection('discordapp.com', 443)
 
-        except ValueError:
-            sys.stderr.write('{} is not a valid JSON file.\n'.format(fileName))
-            
-        except FileNotFoundError:
-            sys.stderr.write('{} can not be found.\n'.format(fileName))
-            
-        except IOError:
-            sys.stderr.write('Failed to read file: {}\n'.format(fileName))
+        # Request all images and videos in the selected channel.
+        conn.request(
+            'GET',
+            '/api/v6/guilds/{0}/messages/search?has=image&has=video&channel_id={1}&offset={2}&include_nsfw=true'.format(server_id, channel_id, offset),
+            headers={'user-agent': self.agent, 'authorization': self.auth}
+        )
 
-        except MissingValue: pass
+        # Gather server response
+        resp = conn.getresponse()
+        data = resp.read().decode('utf-8', 'replace')
+        json = json_load(data)
+        file_data = []
+        
+        # Handle all messages
+        for messages in json['messages']:
+            for i in range(len(messages)):
+                for attachment in messages[i]['attachments']:
+                    file_data.append([attachment['url'], attachment['filename']])
 
-    def grabJSON(self, folderName, serverId, channelId, query, offset):
-        req, res = Requests(self.httpHeaders), Requests({})
-        req.get('https://discordapp.com/api/v6/guilds/{}/messages/search?{}&channel_id={}&offset={}'.format(serverId, query, channelId, offset * 25))
-        jsonData = json.loads(req.text)
+        # Remove duplicate files.
+        seen = set()
+        new_data = []
 
-        imagelinks = []
-        for messages in jsonData['messages']:
-            for x in range(len(messages)):
-                for attachments in messages[x]['attachments']:
-                    imagelinks.append(attachments['url'])
+        for item in file_data:
+            t = tuple(item)
+            if t not in seen:
+                new_data.append(item)
+                seen.add(t)
 
-        imagelinks = list(set(imagelinks))
-        for images in imagelinks:
-            res.get(images)
+        # Download the files.
+        for url, filename in new_data:
+            file_location = path.join(getcwd(), 'Discord Scrapes', server_id, channel_id, '{0}({1}).{2}'.format('.'.join(filename.split('.')[:-1]), randoms(10), filename.split('.')[-1]))
+            file_url = '/{0}'.format('/'.join(url.split('/')[3::]))
 
-            if res.status == 200:
-                fileName = os.path.join(os.getcwd(), folderName, '{}_{}'.format(randomString(8), images.split('/')[-1]))
-                with open(fileName, 'wb') as rawFile:
-                    rawFile.write(res.raw)
+            with open(file_location, 'wb') as file_stream:
+                conn = HTTPSConnection('cdn.discordapp.com', 443)
+                conn.request('GET', file_url)
+                resp = conn.getresponse()
+                file_stream.write(resp.read())
 
+'''
+''  Script entry point.
+'''
 if __name__ == '__main__':
-    ds = DiscordSpider()
+    discord = Discord()

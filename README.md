@@ -1,42 +1,88 @@
-# Discord Scraper [Beta]
+# Discord Scraper
 
 Release Date: October 3, 2017 @ 10:13 UTC-0
 
-# Tutorial
+# Discord App Tutorial
 
 Step 1:
-Open/Login to your Discord app and press CTRL + SHIFT + I to open the Developer Tools panel.
-Take the Server ID and Channel ID data from the URL in the title of the Developer Tools panel.
-![x74PJvp.png](https://i.imgur.com/x74PJvp.png "Step 1")
+Open your Discord app and enter the app settings.
+![vwJ4kp5.png](https://i.imgur.com/vwJ4kp5.png "Step 1")
 
 Step 2:
-Go to the Application tab in the Developer Tools panel.
-Expand the Local Storage area on the left-side of the Developer Tools panel.
-Select the discordapp URL in the list.
-Highlight the data between the quotation marks in the token value and press CTRL + C to copy the token.
-![hTsoSGd.png](https://i.imgur.com/hTsoSGd.png "Step 2")
+Traverse to Appearance and enable Developer Mode if it is disabled.
+![35zu4Wt.png](https://i.imgur.com/35zu4Wt.png "Step 2a")
+![YEad6fw.png](https://i.imgur.com/YEad6fw.png "Step 2b")
 
 Step 3:
-Open the Discord.py script in any Python IDE of your choosing (IDLE was used in this example).
-Replace the text '<TOKEN>' with the token value you grabbed from Step 2.
-Replace the text '<SERVERID>' with the Server ID data that you grabbed from Step 1.
-Replace the text '<CHANNELID>' with the Channel ID data that you grabbed from Step 1.
-Alter the Query value as necessary (the default is set to grab all NSFW and non-NSFW images and videos).
-![dqsYX8q.png](https://i.imgur.com/dqsYX8q.png "Step 3")
+Close the app settings and press CTRL + SHIFT + I to open the Developer panel.
 
 Step 4:
-Make sure that you put the Discord.py script in its own folder since all contents will be placed in the same folder that the Discord.py file resides.
-Run the Discord.py script and it should prompt you for the number of pages to grab (this coincides with the page number from the search query) the general rule is 25 contents per page, so 2 pages would equate to about 50 items.
-Let the script run (it may take a while to finish) the beta version of this script is designed to halt upon error, but the final release of this script will ignore errors and continue grabbing data as demanded.
+Expand the Local Storage area on the left-side of the Developer panel.
+Copy the value of "token" into the config.json file.
+![Z7SHpYs.png](https://i.imgur.com/Z7SHpYs.png "Step 4a")
+![5tekl6c.png](https://i.imgur.com/5tekl6c.png "Step 4b")
 
-# Warning
+Step 5:
+Close the Developer panel and right-click on the server icon and copy ID.
+Paste the server ID into the config.json file.
+![32VP97z.png](https://i.imgur.com/32VP97z.png "Step 5a")
+![NXQM9zx.png](https://i.imgur.com/NXQM9zx.png "Step 5b")
 
-**Do not run these scripts if you meet any of these limitations:**
-* A CPU that is prone to overheating
-* A metered internet connection (monthly bandwidth caps)
-* A storage device that is low on available space
+Step 6:
+Right-click on the channel name and copy ID.
+Paste the channel ID into the config.json file.
+![okhdZtQ.png](https://i.imgur.com/okhdZtQ.png "Step 6a")
+![vTD8zL4.png](https://i.imgur.com/vTD8zL4.png "Step 6b")
+
+Step 7:
+Run the script to start the downloading process.
+
+# Discord Website Tutorial
+
+Step 1:
+Login to your Discord account.
+![Gr1b8NZ.png](https://i.imgur.com/Gr1b8NZ.png "Step 1")
+
+Step 2:
+Press CTRL + SHIFT + I to open the Developer Tools panel.
+
+Step 3:
+Expand the Local Storage area on the left-side of the Developer Tools panel.
+Copy the value of "token" into the config.json file.
+![Z7SHpYs.png](https://i.imgur.com/Z7SHpYs.png "Step 3a")
+![5tekl6c.png](https://i.imgur.com/5tekl6c.png "Step 3b")
+
+Step 4:
+Close the Developer Tools panel and right-click on the server icon and copy ID.
+Paste the server ID into the config.json file.
+![qGB3IXJ.png](https://i.imgur.com/qGB3IXJ.png "Step 4a")
+![NXQM9zx.png](https://i.imgur.com/NXQM9zx.png "Step 4b")
+
+Step 5:
+Right-click on the channel name and copy ID.
+Paste the channel ID into the config.json file.
+![6gO2LPF.png](https://i.imgur.com/6gO2LPF.png "Step 5a")
+![vTD8zL4.png](https://i.imgur.com/vTD8zL4.png "Step 5b")
+
+Step 6:
+Run the script to start the downloading process.
+
+# Note
+**You can copy in multiple channels on multiple servers if you want to.**
 
 # Changelog (DD-MM-YYYY)
+
+13-11-2018 - Released:
+* Implemented a new concept from the experimental branch.
+* Updated the experimental branch to match the master branch.
+* I will find a method of alleviating the duplicate images/videos issue.
+* I will fix up the commenting and make the code easier on the eyes.
+
+28-08-2018 - Added Experimental Branch:
+* Python 3 version of script now uses a separate config.
+* MFA token now goes in the separate config to help avoid accidental leakage of one's MFA token.
+* Multiple channel and server support added.
+* Replaced the requests module with http.client module which is built-in to Python 3.7.
 
 07-04-2018 - Beta Fix #3:
 * Fixed threading issue (too many concurrent threads)

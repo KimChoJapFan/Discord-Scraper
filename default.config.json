@@ -1,0 +1,13 @@
+{
+	"token":		 "<MFA TOKEN>",
+	"servers":		 {
+		"<SERVER 1 ID>": [
+			"<SERVER 1 CHANNEL 1 ID>",
+			"<SERVER 1 CHANNEL 2 ID>"
+		],
+		"<SERVER 2 ID>": [
+			"<SERVER 2 CHANNEL 1 ID>",
+			"<SERVER 2 CHANNEL 2 ID>"
+		]
+	}
+}
