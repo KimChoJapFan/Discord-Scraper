@@ -97,6 +97,7 @@ def create_query_body(**kwargs):
 
     return query
 
+
 #
 # Classes
 #
@@ -327,27 +328,25 @@ class Discord:
     def grab_server_data(self):
         """Scan and grab the attachments within a server."""
 
-        for server in self.servers.keys():
-            for channels in self.servers.values():
-                for channel in channels:
-                    folder = self.create_folders(
-                        self.get_server_name(server),
-                        self.get_channel_name(channel)
-                    )
+        for server, channels in self.servers.items():
+            for channel in channels:
+                folder = self.create_folders(
+                    self.get_server_name(server),
+                    self.get_channel_name(channel)
+                )
 
-                    self.grab_data(folder, server, channel)
+                self.grab_data(folder, server, channel)
 
     def grab_dm_data(self):
         """Scan and grab the attachments within a direct message."""
 
-        for alias in self.directs.keys():
-            for channel in self.directs.values():
-                folder = self.create_folders(
-                    path.join('Direct Messages', alias),
-                    channel
-                )
+        for alias, channel in self.directs.items():
+            folder = self.create_folders(
+                path.join('Direct Messages', alias),
+                channel
+            )
 
-                self.grab_data(folder, alias, channel, True)
+            self.grab_data(folder, alias, channel, True)
 
 #
 # Initializer
