@@ -1,17 +1,14 @@
 # Discord Scraper
 
-**Creation Date:** October 3, 2017
-**Release Date:** November 13, 2018
-
-# Table of Contents
+## Table of Contents
 * [Configuring Discord application for PC](#desktop-application)
 * [Configuring Discord website for PC](#website)
 * [Notes](#notes)
 * [Changelog](#changelog)
 
-# Configuring
+## Configuring
 
-## Desktop Application:
+### Desktop Application:
 
 Step 1:
 Open your Discord app and enter the app settings.
@@ -22,7 +19,7 @@ Traverse to Appearance and enable Developer Mode if it is disabled.
 ![35zu4Wt.png](https://i.imgur.com/35zu4Wt.png "Step 2a")
 ![YEad6fw.png](https://i.imgur.com/YEad6fw.png "Step 2b")
 
-## Website:
+### Website:
 
 Step 3:
 Close the app settings and press CTRL + SHIFT + I to open the Developer panel.
@@ -48,12 +45,12 @@ Paste the channel ID into the discord.json file.
 Step 7:
 Run the script to start the downloading process.
 
-# Notes
+## Notes
 
 * You can copy in multiple channels on multiple servers if you want to.
 * You must make modifications to the JSON file before running the script (otherwise you'll end up with errors).
 
-# Changelog
+## Changelog
 
 **The dates below are in DD-MM-YYYY formatting.**
 
