@@ -255,17 +255,12 @@ class Discord:
         db = connect(dbfile)
         c = db.cursor()
 
-        tblcount = 'SELECT count(*) from sqlite_master where type=\'table\''
-        c.execute(tblcount)
-
-        tablecount = c.fetchone()[0]
-        if tablecount == 0:
-            c.execute('''CREATE TABLE text_%s_%s (
-                id TEXT,
-                name TEXT,
-                content TEXT,
-                timestamp TEXT
-            )''' % (server, channel))
+        c.execute('''CREATE TABLE IF NOT EXISTS text_%s_%s (
+            id TEXT,
+            name TEXT,
+            content TEXT,
+            timestamp TEXT
+        )''' % (server, channel))
 
         c.execute('INSERT INTO text_%s_%s VALUES (?,?,?,?)' % (server, channel), (
             message['author']['id'],
