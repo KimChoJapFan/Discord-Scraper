@@ -4,10 +4,10 @@
 **Release Date:** November 13, 2018
 
 # Table of Contents
-[Configuring Discord application for PC](#markdown-header-desktop-application)
-[Configuring Discord website for PC](#markdown-header-website)
-[Notes](#markdown-header-notes)
-[Changelog](#markdown-header-changelog)
+* [Configuring Discord application for PC](#desktop-application)
+* [Configuring Discord website for PC](#website)
+* [Notes](#notes)
+* [Changelog](#changelog)
 
 # Configuring
 
