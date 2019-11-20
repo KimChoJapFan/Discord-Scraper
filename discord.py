@@ -2,28 +2,26 @@
 # Imported module functions
 #
 
-# http module used to make connections to a web server.
-from http.client import HTTPSConnection, HTTPConnection
+# Use our SimpleRequests module for this experimental version.
+from SimpleRequests import SimpleRequest
+from SimpleRequests.SimpleRequest import error
 
-# Time module used to generate timestamps for the snowflakes.
-from time import time, gmtime, strptime, mktime
+# Use the time module for generating timestamps and snowflakes.
+from time import strptime, gmtime, mktime, time
 
-# OS module used to create directories and write files to them.
-from os import path, makedirs, getcwd
+# Use the os module for creating directories and writing files.
+from os import makedirs, getcwd, path
 
-# System module used to get the major version for the Python
-#  interpreter and to print out errors.
-from sys import stderr, version_info
-
-# Mimetypes module used to determine the mimetype of a file
-#  to sift through images, videos, and other content.
+# Use the mimetypes module to determine the mimetype of a file.
 from mimetypes import MimeTypes
 
-# Randomly choose a value from a list of values.
+# Use the sqlite3 module to access SQLite databases.
+from sqlite3 import connect
+
+# Use the random module to choose from a list at random.
 from random import choice
 
-# Convert JSON to a Python dictionary for ease of reading
-#  the configuration contents.
+# Convert JSON to a Python dictionary for ease of traversal.
 from json import loads
 
 #
@@ -31,18 +29,11 @@ from json import loads
 #
 
 # Return a random string of a specified length.
-random_str = lambda length: ''.join([choice('0123456879ABCDEF') for i in range(length)])
-
-# Split URLs for the http.client module.
-split_url = lambda url: {
-    'scheme': url.split('/')[0][:-1],
-    'domain': url.split('/')[2],
-    'path'  : f"/{'/'.join(url.split('/')[3::])}"
-}
+random_str = lambda length: ''.join([choice('0123456789ABCDEF') for i in range(length)])
 
 # Get the mimetype string from an input filename.
-mimetype = lambda filename: MimeTypes().guess_type(filename)[0] \
-    if MimeTypes().guess_type(filename)[0] != None \
+mimetype = lambda name: MimeTypes().guess_type(name)[0] \
+    if MimeTypes().guess_type(name)[0] is not None \
     else 'application/octet-stream'
 
 # Return a Discord snowflake from a timestamp.
@@ -54,23 +45,21 @@ timestamp = lambda snowflake: ((snowflake >> 22) + 1420070400000) / 1000.0
 # Create a time structure from an input timestamp.
 timestruct = lambda timestamp: strptime(timestamp, '%d %m %Y %H:%M:%S')
 
+
 #
 # Global functions
 #
 
+
 def get_day(day, month, year):
     """Get the timestamps from 00:00 to 23:59 of the given day.
 
-    Arguments:
-        day   (int) -- The date (1, 2, 3, ..., 30, 31)
-        month (int) -- The month (January = 1, February = 2, ...)
-        year  (int) -- The year (2015, 2016, 2017, 2018, 2019, ...)
-
-    Returns: dictionary
-        00:00 (int) -- The earliest snowflake for the given day.
-        23:59 (int) -- The latest   snowflake for the given day.
+    :param day: The target day.
+    :param month: The target month.
+    :param year: The target year.
     """
-    min_time = mktime(timestruct(f'{day:02} {month:02} {year} 00:00:00'))
+
+    min_time = mktime(timestruct('%02d %02d %d 00:00:00' % (day, month, year)))
     max_time = (min_time + 86400.0) * 1000
     min_time *= 1000
 
@@ -79,39 +68,32 @@ def get_day(day, month, year):
         '23:59': snowflake(int(max_time))
     }
 
+
 def safe_name(name):
     """Convert name to a *nix/Windows compliant name.
 
-    Arguments:
-        name (string) -- The input name to be converted.
-
-    Returns: string
+    :param name: The filename to convert.
     """
-    output = ""
 
+    output = ""
     for char in name:
         if char not in '\\/<>:"|?*':
-            output = f'{output}{char}'
-    
+            output += char
+
     return output
 
+
 def create_query_body(**kwargs):
-    """Generate a search query string for Discord.
+    """Generate a search query string for Discord."""
 
-    Arguments:
-        **kwargs (dict) -- Similar to sys.argv for a function.
-            { "category" : True/False }
-
-    Returns: string
-    """
     query = ""
 
     for key, value in kwargs.items():
-        if value == True and key != 'nsfw':
-            query = f'{query}&has={key[:-1]}'
+        if value is True and key != 'nsfw':
+            query += '&has=%s' % key[:-1]
 
         if key == 'nsfw':
-            query = f'{query}&include_nsfw={str(value).lower()}'
+            query += '&include_nsfw=%s' % str(value).lower()
 
     return query
 
@@ -119,134 +101,94 @@ def create_query_body(**kwargs):
 # Classes
 #
 
-class Request:
-    """Experimental request class."""
 
-    def __init__(self, headers = {}):
-        """Class constructor.
+class DiscordConfig(object):
+    """Just a class used to store configs as objects."""
 
-        Arguments:
-            headers  (dict) -- Store the input headers:
-                { "header name" : "header value" }
-        """
-        self.headers = headers
 
-    def grab_page(self, url, binary = False):
-        """Grab the contents of a URL.
-
-        Arguments:
-            url  (string) -- The target URL.
-            binary (bool) -- Whether to return the contents in binary formatting or not.
-
-        Returns:
-            String when binary = False
-            Binary when binary = True
-        """
-        try:
-            spliced = split_url(url)
-            domain  = spliced['domain']
-            urlpath = spliced['path']
-
-            conn = HTTPSConnection(domain, 443)
-            conn.request('GET', urlpath, headers=self.headers)
-            resp = conn.getresponse()
-
-            if resp.status < 400:
-                return resp.read() if binary else loads(resp.read())
-
-            else:
-                stderr.write(f'\nReceived HTTP {resp.status} error: {resp.reason} on {url}')
-                return {}
-            
-        except Exception as e:
-            stderr.write(f'\nUnknown exception : {e}')
-            return {}
-
-class Discord_Scraper:
+class Discord:
     """Experimental Discord scraper class."""
 
-    def __init__(self, config = 'config.json'):
-        """Class constructor.
+    def __init__(self, config='config.json', apiver='v6'):
+        """Discord constructor.
 
-        Arguments:
-            config (string) -- The config filename.
+        :param config: The configuration JSON file.
+        :param apiver: The current Discord API version.
         """
-        with open(config, 'r') as config_file:
-            config_data = loads(config_file.read())
+
+        with open(config, 'r') as configfile:
+            configdata = loads(configfile.read())
+
+        cfg = type('DiscordConfig', (object,), configdata)()
+        if cfg.token == "" or cfg.token is None:
+            error('You must have an authorization token set in %s' % config)
+            exit(-1)
+
+        self.api = apiver
+        self.buffer = cfg.buffer
 
         self.headers = {
-            'user-agent':    config_data['agent'],
-            'authorization': config_data['token']
+            'user-agent': cfg.agent,
+            'authorization': cfg.token
         }
 
-        self.types = config_data['types']
+        self.types = cfg.types
         self.query = create_query_body(
-            images = config_data['query']['images'],
-            files  = config_data['query']['files' ],
-            embeds = config_data['query']['embeds'],
-            links  = config_data['query']['links' ],
-            videos = config_data['query']['videos'],
-            nsfw   = config_data['query']['nsfw'  ]
+            images=cfg.query['images'],
+            files=cfg.query['files'],
+            embeds=cfg.query['embeds'],
+            links=cfg.query['links'],
+            videos=cfg.query['videos'],
+            nsfw=cfg.query['nsfw']
         )
 
-        self.directs = config_data['directs']
-        self.servers = config_data['servers']
-        
-    def get_server_name(self, server_id):
-        """Get server name by ID.
+        self.directs = cfg.directs if len(cfg.directs) > 0 else {}
+        self.servers = cfg.servers if len(cfg.servers) > 0 else {}
 
-        Arguments:
-            server_id (int) -- The target server ID.
+        # Save us the time by exiting out when there's nothing to scrape.
+        if len(cfg.directs) == 0 and len(cfg.servers) == 0:
+            exit(0)
 
-        Returns: string
+    def get_server_name(self, serverid):
+        """Get the server name by its ID.
+
+        :param serverid: The server ID.
         """
-        try:
-            request = Request(self.headers)
-            server  = request.grab_page(f'https://discordapp.com/api/v6/guilds/{server_id}')
-            
-            if len(server) > 0:
-                return f"{server_id}_{safe_name(server['name'])}"
 
-            else:
-                stderr.write('\nUnable to fetch server name from id, generating one instead.')
-                return f"{server_id}_{random_str(12)}"
+        request = SimpleRequest(self.headers).request
+        server = request.grab_page('https://discordapp.com/api/%s/guilds/%s' % (self.api, serverid))
 
-        except Exception as e:
-            stderr.write(f'\nUnable to fetch server name from id, generating one instead. {e}')
-            return f"{server_id}_{random_str(12)}"
+        if server is not None and len(server) > 0:
+            return '%s_%s' % (serverid, safe_name(server['name']))
 
-    def get_channel_name(self, channel_id):
-        """Get channel name by ID.
+        else:
+            error('Unable to fetch server name from id, generating one instead.')
+            return '%s_%s' % (serverid, random_str(12))
 
-        Arguments:
-            channel_id (int) -- The target channel ID.
+    def get_channel_name(self, channelid):
+        """Get the channel name by its ID.
 
-        Returns: string
+        :param channelid: The channel ID.
         """
-        try:
-            request = Request(self.headers)
-            channel = request.grab_page(f'https://discordapp.com/api/v6/channels/{channel_id}')
-            
-            if len(channel) > 0:
-                return f"{channel_id}_{safe_name(channel['name'])}"
-            
-            else:
-                stderr.write('\nUnable to fetch channel name from id, generating one instead.')
-                return f"{channel_id}_{random_str(12)}"
-        
-        except Exception as e:
-            stderr.write('\nUnable to fetch channel name from id, generating one instead.')
-            return f"{channel_id}_{random_str(12)}"
-        
-    def create_folders(self, server, channel):
+
+        request = SimpleRequest(self.headers).request
+        channel = request.grab_page('https://discordapp.com/api/%s/channels/%s' % (self.api, channelid))
+
+        if channel is not None and len(channel) > 0:
+            return '%s_%s' % (channelid, safe_name(channel['name']))
+
+        else:
+            error('Unable to fetch channel name from id, generating one instead.')
+            return '%s_%s' % (channelid, random_str(12))
+
+    @staticmethod
+    def create_folders(server, channel):
         """Create the folder structure.
 
-        Arguments:
-            server  (string) -- The target server  name
-            channel (string) -- The target channel name
-
-        Returns: string
+        :param server: The server name.
+        :param channel: The channel name.
         """
+
         folder = path.join(getcwd(), 'Discord Scrapes', server, channel)
         if not path.exists(folder):
             makedirs(folder)
@@ -256,55 +198,44 @@ class Discord_Scraper:
     def download(self, url, folder):
         """Download the contents of a URL.
 
-        Arguments:
-            url    (string) -- The target URL.
-            folder (string) -- The target folder.
+        :param url: The target URL.
+        :param folder: The target folder.
         """
-        try:
-            request = Request({
-                'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
-            })
 
-            filename = safe_name(f"{url.split('/')[-2]}_{url.split('/')[-1]}")
-            filedata = request.grab_page(url, True)
+        request = SimpleRequest(self.headers).request
+        request.set_header('user-agent', 'Mozilla/5.0 (X11; Linux x86_64) Chrome/78.0.3904.87 Safari/537.36')
 
-            if len(filedata) > 0:
-                with open(path.join(folder, filename), 'wb') as bin:
-                    bin.write(filedata)
-            
-            else:
-                stderr.write(f'\nFailed to grab the contents of {url}')
-
-        except Exception as e:
-            stderr.write(f'\nUnknown exception: {e} when grabbing from {url}')
-
+        filename = safe_name('%s_%s' % (url.split('/')[-2], url.split('/')[-1]))
+        if not path.exists(filename):
+            request.stream_file(url, folder, filename, self.buffer)
 
     def check_config_mimetypes(self, source, folder):
         """Check the config settings against the source mimetype.
 
-        Arguments:
-            source (dict)   -- Response from Discord search.
-            folder (string) -- Folder where the data will be stored.
+        :param source: Response from Discord search.
+        :param folder: Folder where the data will be stored.
         """
-        for attachment in source['attachments']:
-            if self.types['images'] == True:
-                if mimetype(attachment['url']).split('/')[0] == 'image':
-                    self.download(attachment['url'], folder)
 
-            if self.types['videos'] == True:
+        for attachment in source['attachments']:
+            if self.types['images'] is True:
+                if mimetype(attachment['url']).split('/')[0] == 'image':
+                    self.download(attachment['proxy_url'], folder)
+
+            if self.types['videos'] is True:
                 if mimetype(attachment['url']).split('/')[0] == 'video':
-                    self.download(attachment['url'], folder)
-                
-            if self.types['files'] == True:
+                    self.download(attachment['proxy_url'], folder)
+
+            if self.types['files'] is True:
                 if mimetype(attachment['url']).split('/')[0] not in ['image', 'video']:
-                    self.download(attachment['url'], folder)
-    
+                    self.download(attachment['proxy_url'], folder)
+
     def grab_data(self):
         """Scan and grab the attachments within a server."""
 
         for server in self.servers.keys():
             for channels in self.servers.values():
                 for channel in channels:
+
                     tzdata = gmtime(time())
                     folder = self.create_folders(
                         self.get_server_name(server),
@@ -314,30 +245,32 @@ class Discord_Scraper:
                     for year in range(tzdata.tm_year, 2015, -1):
                         for month in range(12, 1, -1):
                             for day in range(31, 1, -1):
-                                if month >  tzdata.tm_mon and year == tzdata.tm_year: continue
-                                if month == tzdata.tm_mon and  day  > tzdata.tm_mday: continue
 
-                                try:
-                                    headers = self.headers
-                                    headers.update({
-                                        'referer': f'https://discordapp.com/channels/{server}/{channel}'
-                                    })
+                                if month > tzdata.tm_mon and year == tzdata.tm_year:
+                                    continue
 
-                                    today   = get_day(day, month, year)
-                                    request = Request(headers)
-                                    content = request.grab_page(f"https://discordapp.com/api/v6/guilds/{server}/messages/search?channel_id={channel}&min_id={today['00:00']}&max_id={today['23:59']}&{self.query}")
+                                if month == tzdata.tm_mon and day > tzdata.tm_mday:
+                                    continue
 
+                                request = SimpleRequest(self.headers).request
+                                request.set_header('referer', 'https://discordapp.com/channels/%s/%s' % (server, channel))
+
+                                today = get_day(day, month, year)
+                                content = request.grab_page(
+                                    'https://discordapp.com/api/%s/guilds/%s/messages/search?channel_id=%s&min_id=%s&max_id=%s&%s' %
+                                    (self.api, server, channel, today['00:00'], today['23:59'], self.query)
+                                )
+
+                                if content['messages'] is not None:
                                     for messages in content['messages']:
                                         for message in messages:
                                             self.check_config_mimetypes(message, folder)
-
-                                except ValueError: pass
-                                except Exception:  pass
 
 #
 # Initializer
 #
 
+
 if __name__ == '__main__':
-    ds = Discord_Scraper()
+    ds = Discord()
     ds.grab_data()
