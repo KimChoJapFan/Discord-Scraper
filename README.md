@@ -1,12 +1,17 @@
 # Discord Scraper
 
-Release Date: November 13, 2018 @ 05:00 UTC-0
+**Creation Date:** October 3, 2017
+**Release Date:** November 13, 2018
 
-Creation Date: October 3, 2017 @ 10:13 UTC-0
+# Table of Contents
+[Configuring Discord application for PC](#markdown-header-desktop-application)
+[Configuring Discord website for PC](#markdown-header-website)
+[Notes](#markdown-header-notes)
+[Changelog](#markdown-header-changelog)
 
 # Configuring
 
-## Start here if you're using the Discord desktop application:
+## Desktop Application:
 
 Step 1:
 Open your Discord app and enter the app settings.
@@ -17,7 +22,7 @@ Traverse to Appearance and enable Developer Mode if it is disabled.
 ![35zu4Wt.png](https://i.imgur.com/35zu4Wt.png "Step 2a")
 ![YEad6fw.png](https://i.imgur.com/YEad6fw.png "Step 2b")
 
-## Start here if you're not using the Discord desktop application:
+## Website:
 
 Step 3:
 Close the app settings and press CTRL + SHIFT + I to open the Developer panel.
@@ -43,10 +48,19 @@ Paste the channel ID into the discord.json file.
 Step 7:
 Run the script to start the downloading process.
 
-# Note
-**You can copy in multiple channels on multiple servers if you want to.**
+# Notes
 
-# Changelog (DD-MM-YYYY)
+* You can copy in multiple channels on multiple servers if you want to.
+* You must make modifications to the JSON file before running the script (otherwise you'll end up with errors).
+
+# Changelog
+
+**The dates below are in DD-MM-YYYY formatting.**
+
+20-11-2019 - Experimental Overhaul:
+* Resurrected the experimental branch again for some testing.
+* Created a separate module for this script (SimpleRequests).
+* Added buffer size option in the JSON file (defaults to 1 MiB).
 
 18-06-2019 - Maintenance Update:
 * Updated the README to update the token gathering method.
