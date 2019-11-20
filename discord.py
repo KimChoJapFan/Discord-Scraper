@@ -310,15 +310,17 @@ class Discord:
                                 (self.api, channel, today['00:00'], today['23:59'], self.query)
                             )
 
-                        if content['messages'] is not None:
-                            for messages in content['messages']:
-                                for message in messages:
-                                    self.check_config_mimetypes(message, folder)
+                        try:
+                            if content['messages'] is not None:
+                                for messages in content['messages']:
+                                    for message in messages:
+                                        self.check_config_mimetypes(message, folder)
 
-                                    if self.types['text'] is True:
-                                        if len(message['content']) > 0:
-                                            self.insert_text(server, channel, message)
-
+                                        if self.types['text'] is True:
+                                            if len(message['content']) > 0:
+                                                self.insert_text(server, channel, message)
+                        except TypeError:
+                            continue
         except ValueError:
             pass
 
