@@ -37,13 +37,13 @@ mimetype = lambda name: MimeTypes().guess_type(name)[0] \
     else 'application/octet-stream'
 
 # Return a Discord snowflake from a timestamp.
-snowflake = lambda timestamp: (timestamp - 1420070400000) << 22
+snowflake = lambda timestamp_s: (timestamp_s - 1420070400000) << 22
 
 # Return a timestamp from a Discord snowflake.
-timestamp = lambda snowflake: ((snowflake >> 22) + 1420070400000) / 1000.0
+timestamp = lambda snowflake_t: ((snowflake_t >> 22) + 1420070400000) / 1000.0
 
 # Create a time structure from an input timestamp.
-timestruct = lambda timestamp: strptime(timestamp, '%d %m %Y %H:%M:%S')
+timestruct = lambda timestamp_t: strptime(timestamp_t, '%d %m %Y %H:%M:%S')
 
 
 #
@@ -150,11 +150,15 @@ class Discord:
             error('No servers or DMs were set to be grabbed, exiting.')
             exit(0)
 
-    def get_server_name(self, serverid):
+    def get_server_name(self, serverid, isdm=False):
         """Get the server name by its ID.
 
         :param serverid: The server ID.
+        :param isdm: A flag to check whether we're in a DM or not.
         """
+
+        if isdm:
+            return serverid
 
         request = SimpleRequest(self.headers).request
         server = request.grab_page('https://discordapp.com/api/%s/guilds/%s' % (self.api, serverid))
@@ -166,17 +170,21 @@ class Discord:
             error('Unable to fetch server name from id, generating one instead.')
             return '%s_%s' % (serverid, random_str(12))
 
-    def get_channel_name(self, channelid):
+    def get_channel_name(self, channelid, isdm=False):
         """Get the channel name by its ID.
 
         :param channelid: The channel ID.
+        :param isdm: A flag to check whether we're in a DM or not.
         """
+
+        if isdm:
+            return channelid
 
         request = SimpleRequest(self.headers).request
         channel = request.grab_page('https://discordapp.com/api/%s/channels/%s' % (self.api, channelid))
 
         if channel is not None and len(channel) > 0:
-            return '%s_%s' % (channelid, safe_name(channel['username']))
+            return '%s_%s' % (channelid, safe_name(channel['name']))
 
         else:
             error('Unable to fetch channel name from id, generating one instead.')
@@ -219,19 +227,64 @@ class Discord:
 
         for attachment in source['attachments']:
             if self.types['images'] is True:
-                if mimetype(attachment['url']).split('/')[0] == 'image':
+                if mimetype(attachment['proxy_url']).split('/')[0] == 'image':
                     self.download(attachment['proxy_url'], folder)
 
             if self.types['videos'] is True:
-                if mimetype(attachment['url']).split('/')[0] == 'video':
+                if mimetype(attachment['proxy_url']).split('/')[0] == 'video':
                     self.download(attachment['proxy_url'], folder)
 
             if self.types['files'] is True:
-                if mimetype(attachment['url']).split('/')[0] not in ['image', 'video']:
+                if mimetype(attachment['proxy_url']).split('/')[0] not in ['image', 'video']:
                     self.download(attachment['proxy_url'], folder)
 
-    def grab_data(self, folder, server, channel):
-        """Scan and grab the attachments."""
+    @staticmethod
+    def insert_text(server, channel, message):
+        """Insert the text data into our SQLite database file.
+
+        :param server: The server name.
+        :param channel: The channel name.
+        :param message: Our message object.
+        """
+
+        dbdir = path.join(getcwd(), 'Discord Scrapes')
+        if not path.exists(dbdir):
+            makedirs(dbdir)
+
+        dbfile = path.join(dbdir, 'text.db')
+        db = connect(dbfile)
+        c = db.cursor()
+
+        tblcount = 'SELECT count(*) from sqlite_master where type=\'table\''
+        c.execute(tblcount)
+
+        tablecount = c.fetchone()[0]
+        if tablecount == 0:
+            c.execute('''CREATE TABLE text_%s_%s (
+                id TEXT,
+                name TEXT,
+                content TEXT,
+                timestamp TEXT
+            )''' % (server, channel))
+
+        c.execute('INSERT INTO text_%s_%s VALUES (?,?,?,?)' % (server, channel), (
+            message['author']['id'],
+            '%s#%s' % (message['author']['username'], message['author']['discriminator']),
+            message['content'],
+            message['timestamp']
+        ))
+
+        db.commit()
+        db.close()
+
+    def grab_data(self, folder, server, channel, isdm=False):
+        """Scan and grab the attachments.
+
+        :param folder: The folder name.
+        :param server: The server name.
+        :param channel: The channel name.
+        :param isdm: A flag to check whether we're in a DM or not.
+        """
 
         tzdata = gmtime(time())
 
@@ -249,7 +302,7 @@ class Discord:
                         request = SimpleRequest(self.headers).request
                         today = get_day(day, month, year)
 
-                        if server is not None:
+                        if not isdm:
                             request.set_header('referer', 'https://discordapp.com/channels/%s/%s' % (server, channel))
                             content = request.grab_page(
                                 'https://discordapp.com/api/%s/guilds/%s/messages/search?channel_id=%s&min_id=%s&max_id=%s&%s' %
@@ -266,6 +319,10 @@ class Discord:
                             for messages in content['messages']:
                                 for message in messages:
                                     self.check_config_mimetypes(message, folder)
+
+                                    if self.types['text'] is True:
+                                        if len(message['content']) > 0:
+                                            self.insert_text(server, channel, message)
 
         except ValueError:
             pass
@@ -293,7 +350,7 @@ class Discord:
                     channel
                 )
 
-                self.grab_data(folder, None, channel)
+                self.grab_data(folder, alias, channel, True)
 
 #
 # Initializer
