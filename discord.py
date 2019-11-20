@@ -147,6 +147,7 @@ class Discord:
 
         # Save us the time by exiting out when there's nothing to scrape.
         if len(cfg.directs) == 0 and len(cfg.servers) == 0:
+            error('No servers or DMs were set to be grabbed, exiting.')
             exit(0)
 
     def get_server_name(self, serverid):
@@ -175,7 +176,7 @@ class Discord:
         channel = request.grab_page('https://discordapp.com/api/%s/channels/%s' % (self.api, channelid))
 
         if channel is not None and len(channel) > 0:
-            return '%s_%s' % (channelid, safe_name(channel['name']))
+            return '%s_%s' % (channelid, safe_name(channel['username']))
 
         else:
             error('Unable to fetch channel name from id, generating one instead.')
@@ -229,42 +230,70 @@ class Discord:
                 if mimetype(attachment['url']).split('/')[0] not in ['image', 'video']:
                     self.download(attachment['proxy_url'], folder)
 
-    def grab_data(self):
+    def grab_data(self, folder, server, channel):
+        """Scan and grab the attachments."""
+
+        tzdata = gmtime(time())
+
+        try:
+            for year in range(tzdata.tm_year, 2015, -1):
+                for month in range(12, 1, -1):
+                    for day in range(31, 1, -1):
+
+                        if month > tzdata.tm_mon and year == tzdata.tm_year:
+                            continue
+
+                        if month == tzdata.tm_mon and day > tzdata.tm_mday:
+                            continue
+
+                        request = SimpleRequest(self.headers).request
+                        today = get_day(day, month, year)
+
+                        if server is not None:
+                            request.set_header('referer', 'https://discordapp.com/channels/%s/%s' % (server, channel))
+                            content = request.grab_page(
+                                'https://discordapp.com/api/%s/guilds/%s/messages/search?channel_id=%s&min_id=%s&max_id=%s&%s' %
+                                (self.api, server, channel, today['00:00'], today['23:59'], self.query)
+                            )
+                        else:
+                            request.set_header('referer', 'https://discordapp.com/channels/@me/%s' % channel)
+                            content = request.grab_page(
+                                'https://discordapp.com/api/%s/channels/%s/messages/search?min_id=%s&max_id=%s&%s' %
+                                (self.api, channel, today['00:00'], today['23:59'], self.query)
+                            )
+
+                        if content['messages'] is not None:
+                            for messages in content['messages']:
+                                for message in messages:
+                                    self.check_config_mimetypes(message, folder)
+
+        except ValueError:
+            pass
+
+    def grab_server_data(self):
         """Scan and grab the attachments within a server."""
 
         for server in self.servers.keys():
             for channels in self.servers.values():
                 for channel in channels:
-
-                    tzdata = gmtime(time())
                     folder = self.create_folders(
                         self.get_server_name(server),
                         self.get_channel_name(channel)
                     )
 
-                    for year in range(tzdata.tm_year, 2015, -1):
-                        for month in range(12, 1, -1):
-                            for day in range(31, 1, -1):
+                    self.grab_data(folder, server, channel)
 
-                                if month > tzdata.tm_mon and year == tzdata.tm_year:
-                                    continue
+    def grab_dm_data(self):
+        """Scan and grab the attachments within a direct message."""
 
-                                if month == tzdata.tm_mon and day > tzdata.tm_mday:
-                                    continue
+        for alias in self.directs.keys():
+            for channel in self.directs.values():
+                folder = self.create_folders(
+                    path.join('Direct Messages', alias),
+                    channel
+                )
 
-                                request = SimpleRequest(self.headers).request
-                                request.set_header('referer', 'https://discordapp.com/channels/%s/%s' % (server, channel))
-
-                                today = get_day(day, month, year)
-                                content = request.grab_page(
-                                    'https://discordapp.com/api/%s/guilds/%s/messages/search?channel_id=%s&min_id=%s&max_id=%s&%s' %
-                                    (self.api, server, channel, today['00:00'], today['23:59'], self.query)
-                                )
-
-                                if content['messages'] is not None:
-                                    for messages in content['messages']:
-                                        for message in messages:
-                                            self.check_config_mimetypes(message, folder)
+                self.grab_data(folder, None, channel)
 
 #
 # Initializer
@@ -273,4 +302,5 @@ class Discord:
 
 if __name__ == '__main__':
     ds = Discord()
-    ds.grab_data()
+    ds.grab_server_data()
+    ds.grab_dm_data()
