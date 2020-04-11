@@ -6,8 +6,8 @@
 from SimpleRequests import SimpleRequest
 from SimpleRequests.SimpleRequest import error
 
-# Use the time module for generating timestamps and snowflakes.
-from time import strptime, gmtime, mktime, time
+# Use the datetime module for generating timestamps and snowflakes.
+from datetime import datetime, timedelta
 
 # Use the os module for creating directories and writing files.
 from os import makedirs, getcwd, path
@@ -37,13 +37,10 @@ mimetype = lambda name: MimeTypes().guess_type(name)[0] \
     else 'application/octet-stream'
 
 # Return a Discord snowflake from a timestamp.
-snowflake = lambda timestamp_s: (timestamp_s - 1420070400000) << 22
+snowflake = lambda timestamp_s: (timestamp_s * 1000 - 1420070400000) << 22
 
 # Return a timestamp from a Discord snowflake.
 timestamp = lambda snowflake_t: ((snowflake_t >> 22) + 1420070400000) / 1000.0
-
-# Create a time structure from an input timestamp.
-timestruct = lambda timestamp_t: strptime(timestamp_t, '%d %m %Y %H:%M:%S')
 
 
 #
@@ -59,9 +56,11 @@ def get_day(day, month, year):
     :param year: The target year.
     """
 
-    min_time = mktime(timestruct('%02d %02d %d 00:00:00' % (day, month, year)))
-    max_time = (min_time + 86400.0) * 1000
-    min_time *= 1000
+    min_time = datetime(year, month, day, 
+        hour=0, minute=0, second=0).timestamp()
+
+    max_time = datetime(year, month, day, 
+        hour=23, minute=59, second=59).timestamp()
 
     return {
         '00:00': snowflake(int(min_time)),
@@ -282,48 +281,38 @@ class Discord:
         :param isdm: A flag to check whether we're in a DM or not.
         """
 
-        tzdata = gmtime(time())
+        date = datetime.today()
 
-        try:
-            for year in range(tzdata.tm_year, 2015, -1):
-                for month in range(12, 1, -1):
-                    for day in range(31, 1, -1):
+        while date.year >= 2015:
+            request = SimpleRequest(self.headers).request
+            today = get_day(date.day, date.month, date.year)
 
-                        if month > tzdata.tm_mon and year == tzdata.tm_year:
-                            continue
+            if not isdm:
+                request.set_header('referer', 'https://discordapp.com/channels/%s/%s' % (server, channel))
+                content = request.grab_page(
+                    'https://discordapp.com/api/%s/guilds/%s/messages/search?channel_id=%s&min_id=%s&max_id=%s&%s' %
+                    (self.api, server, channel, today['00:00'], today['23:59'], self.query)
+                )
+            else:
+                request.set_header('referer', 'https://discordapp.com/channels/@me/%s' % channel)
+                content = request.grab_page(
+                    'https://discordapp.com/api/%s/channels/%s/messages/search?min_id=%s&max_id=%s&%s' %
+                    (self.api, channel, today['00:00'], today['23:59'], self.query)
+                )
 
-                        if month == tzdata.tm_mon and day > tzdata.tm_mday:
-                            continue
+            try:
+                if content['messages'] is not None:
+                    for messages in content['messages']:
+                        for message in messages:
+                            self.check_config_mimetypes(message, folder)
 
-                        request = SimpleRequest(self.headers).request
-                        today = get_day(day, month, year)
-
-                        if not isdm:
-                            request.set_header('referer', 'https://discordapp.com/channels/%s/%s' % (server, channel))
-                            content = request.grab_page(
-                                'https://discordapp.com/api/%s/guilds/%s/messages/search?channel_id=%s&min_id=%s&max_id=%s&%s' %
-                                (self.api, server, channel, today['00:00'], today['23:59'], self.query)
-                            )
-                        else:
-                            request.set_header('referer', 'https://discordapp.com/channels/@me/%s' % channel)
-                            content = request.grab_page(
-                                'https://discordapp.com/api/%s/channels/%s/messages/search?min_id=%s&max_id=%s&%s' %
-                                (self.api, channel, today['00:00'], today['23:59'], self.query)
-                            )
-
-                        try:
-                            if content['messages'] is not None:
-                                for messages in content['messages']:
-                                    for message in messages:
-                                        self.check_config_mimetypes(message, folder)
-
-                                        if self.types['text'] is True:
-                                            if len(message['content']) > 0:
-                                                self.insert_text(server, channel, message)
-                        except TypeError:
-                            continue
-        except ValueError:
-            pass
+                            if self.types['text'] is True:
+                                if len(message['content']) > 0:
+                                    self.insert_text(server, channel, message)
+            except TypeError:
+                continue
+            
+            date += timedelta(days=-1)
 
     def grab_server_data(self):
         """Scan and grab the attachments within a server."""
