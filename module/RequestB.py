@@ -63,7 +63,7 @@ class DiscordRequest(object):
         """
        
         # Sleep for about half a second to avoid ratelimit.
-        sleep(0.5)
+        sleep(1)
 
         # Split the URL into parts.
         urlparts = url.split('/')
